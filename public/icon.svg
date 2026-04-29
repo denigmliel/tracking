@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title>GCal Event Generator</title>
+  <desc>Gradient app icon with GC monogram</desc>
+  <defs>
+    <linearGradient id="bg" x1="0%" x2="100%" y1="0%" y2="100%">
+      <stop offset="0%" stop-color="#6c63ff" />
+      <stop offset="100%" stop-color="#00d4a8" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="#0a0a0f" />
+  <rect x="36" y="36" width="440" height="440" rx="92" fill="url(#bg)" />
+  <rect x="96" y="96" width="320" height="320" rx="64" fill="#0f1020" opacity="0.95" />
+  <path
+    d="M184 176c-47.5 0-86 38.5-86 86s38.5 86 86 86c30.1 0 57.8-15.8 73.3-41.5l-34.1-19.4c-8.7 14.4-24.3 23.1-41.8 23.1-28.8 0-52.2-23.4-52.2-52.2s23.4-52.2 52.2-52.2c17.8 0 33.9 8.9 42.5 23.8l34.4-19c-15.8-26.4-44.2-42.6-74.3-42.6Z"
+    fill="#ffffff"
+  />
+  <path
+    d="M316 174c-31.8 0-60.8 18.2-74.5 46.7l33.6 18.3c7.9-16.3 24.2-26.8 41.9-26.8 26 0 47.5 21.3 47.5 47.7 0 26.6-21.2 47.9-48.2 47.9-11.4 0-22.2-3.7-30.9-10.7v-23.2h42.8v-34.1h-79.4v72.8c17.9 20.5 42.8 31.8 69.4 31.8 47.8 0 86.6-38.1 86.6-85 0-47.1-39.2-85.4-87.8-85.4Z"
+    fill="#ffffff"
+  />
+</svg>
