@@ -23,6 +23,45 @@ import { createProjectReferenceDataset } from '@/lib/project-references'
 import type { CalendarEvent, ProcessResponse, ProjectReferenceDataset } from '@/lib/types'
 
 const STORAGE_KEY = 'gcal-kp-reference-v1'
+const MAX_PROJECT_REFERENCES = 1000
+const VERCEL_REQUEST_LIMIT_BYTES = 4.5 * 1024 * 1024
+const SAFE_REQUEST_SIZE_BYTES = 4.1 * 1024 * 1024
+const MULTIPART_OVERHEAD_BYTES = 48 * 1024
+
+function formatMegabytes(bytes: number) {
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`
+}
+
+function buildProjectReferencePayload(referenceDataset: ProjectReferenceDataset | null) {
+  if (!referenceDataset?.references.length) return []
+
+  return referenceDataset.references.slice(0, MAX_PROJECT_REFERENCES).map((reference) => ({
+    id: reference.id,
+    projectCode: reference.projectCode,
+    customer: reference.customer,
+    account: reference.account,
+    projectName: reference.projectName,
+    searchableText: [reference.projectCode, reference.customer, reference.account, reference.projectName]
+      .filter(Boolean)
+      .join(' | '),
+    rowNumber: reference.rowNumber,
+    sheetName: reference.sheetName,
+  }))
+}
+
+function parseProcessResponse(rawText: string) {
+  if (!rawText.trim()) return null
+
+  try {
+    return JSON.parse(rawText) as ProcessResponse
+  } catch {
+    return null
+  }
+}
+
+function isPayloadTooLargeResponse(response: Response, rawText: string) {
+  return response.status === 413 || /request entity too large|payload too large|function_payload_too_large/i.test(rawText)
+}
 
 function addOneHour(time: string) {
   const [hourText, minuteText] = time.split(':')
@@ -174,6 +213,25 @@ export default function Home() {
 
     try {
       const formData = new FormData()
+      const projectReferencePayload = buildProjectReferencePayload(referenceDataset)
+      const serializedProjectReferences = projectReferencePayload.length
+        ? JSON.stringify(projectReferencePayload)
+        : ''
+      const inputSize =
+        inputMode === 'file' && file
+          ? file.size
+          : new Blob([manualText], { type: 'text/plain;charset=utf-8' }).size
+      const estimatedRequestSize =
+        inputSize +
+        new Blob([serializedProjectReferences], { type: 'application/json' }).size +
+        MULTIPART_OVERHEAD_BYTES
+
+      if (estimatedRequestSize > SAFE_REQUEST_SIZE_BYTES) {
+        throw new Error(
+          `Ukuran upload terlalu besar untuk Vercel (perkiraan ${formatMegabytes(estimatedRequestSize)} dari batas ${formatMegabytes(VERCEL_REQUEST_LIMIT_BYTES)}). Kecilkan file dokumen atau hapus referensi KP Excel yang terlalu besar, lalu coba lagi.`,
+        )
+      }
+
       if (inputMode === 'file' && file) {
         formData.append('file', file)
       } else {
@@ -186,15 +244,28 @@ export default function Home() {
       formData.append('processedAtDate', processedDate)
       formData.append('processedAtTime', processedTime)
 
-      if (referenceDataset?.references.length) {
-        formData.append('projectReferences', JSON.stringify(referenceDataset.references))
+      if (serializedProjectReferences) {
+        formData.append('projectReferences', serializedProjectReferences)
       }
 
       const response = await fetch('/api/process', { method: 'POST', body: formData })
-      const data = (await response.json()) as ProcessResponse
+      const rawText = await response.text()
+      const data = parseProcessResponse(rawText)
 
       if (!response.ok) {
-        throw new Error(data.error || 'Terjadi kesalahan')
+        if (isPayloadTooLargeResponse(response, rawText)) {
+          throw new Error(
+            `Upload ke Vercel melewati batas request ${formatMegabytes(VERCEL_REQUEST_LIMIT_BYTES)}. Kecilkan file dokumen atau referensi KP Excel, lalu coba lagi.`,
+          )
+        }
+
+        throw new Error(data?.error || rawText || 'Terjadi kesalahan')
+      }
+
+      if (!data) {
+        throw new Error(
+          'Server mengembalikan respons yang bukan JSON. Jika ini terjadi di Vercel, biasanya ukuran upload terlalu besar.',
+        )
       }
 
       setEvents(Array.isArray(data.events) ? data.events : [])
